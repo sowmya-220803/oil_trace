@@ -12,7 +12,7 @@ export const ReportsPage = () => {
 
   const handleDownloadSpillsCsv = async () => {
     try {
-      const res = await axios.post('https://oil-trace-tn33.onrender.com', { spills }, { responseType: 'blob' });
+      const res = await axios.post('https://oil-trace-tn33.onrender.com/api/export/csv/spills', { spills }, { responseType: 'blob' });
       const url = window.URL.createObjectURL(new Blob([res.data]));
       const link = document.createElement('a');
       link.href = url;
@@ -26,7 +26,7 @@ export const ReportsPage = () => {
 
   const handleDownloadRankingsCsv = async () => {
     try {
-      const res = await axios.post('http://localhost:8000/api/export/csv/rankings', { rankings }, { responseType: 'blob' });
+      const res = await axios.post('https://oil-trace-tn33.onrender.com/api/export/csv/rankings', { rankings }, { responseType: 'blob' });
       const url = window.URL.createObjectURL(new Blob([res.data]));
       const link = document.createElement('a');
       link.href = url;
@@ -40,7 +40,7 @@ export const ReportsPage = () => {
 
   const handlePrintPdfReport = async () => {
     try {
-      const res = await axios.post('http://localhost:8000/api/export/report', {
+      const res = await axios.post('https://oil-trace-tn33.onrender.com/api/export/csv/report', {
         spills,
         rankings,
         metadata: { generated_by: 'OilTrace AI System' }
