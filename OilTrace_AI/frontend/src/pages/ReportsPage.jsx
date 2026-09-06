@@ -12,7 +12,7 @@ export const ReportsPage = () => {
 
   const handleDownloadSpillsCsv = async () => {
     try {
-      const res = await axios.post('http://localhost:8000/api/export/csv/spills', { spills }, { responseType: 'blob' });
+      const res = await axios.post('https://oil-trace-tn33.onrender.com', { spills }, { responseType: 'blob' });
       const url = window.URL.createObjectURL(new Blob([res.data]));
       const link = document.createElement('a');
       link.href = url;
