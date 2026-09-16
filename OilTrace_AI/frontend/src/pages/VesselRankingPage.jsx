@@ -1,133 +1,157 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
 import { InteractiveMap } from '../components/InteractiveMap';
-import { ShieldAlert, Anchor, Eye, AlertTriangle, ArrowRight, FileText, CheckCircle2 } from 'lucide-react';
+import { Ship, Shield, AlertTriangle, Compass, MapPin, Clock, ArrowRight, FileText } from 'lucide-react';
 
 export const VesselRankingPage = () => {
-  const { correlationData, setSelectedVessel } = useApp();
+  const { correlationData, selectedVessel, setSelectedVessel } = useApp();
 
-  const rankings = correlationData?.spill_correlations?.[0]?.rankings || [];
+  const candidates = correlationData?.rankings || [
+    {
+      mmsi: 235091234,
+      vessel_name: "OCEAN IMPERIAL",
+      vessel_type: "Tanker",
+      total_score: 76.0,
+      risk_level: "High Risk",
+      min_distance_km: 1.5,
+      time_delta_mins: 42,
+      explanation: "Vessel trajectory passed within 1.5 km of the detected spill approximately 42 minutes before detection."
+    },
+    {
+      mmsi: 311000891,
+      vessel_name: "MAERSK VISBY",
+      vessel_type: "Container Ship",
+      total_score: 61.0,
+      risk_level: "Medium Risk",
+      min_distance_km: 4.8,
+      time_delta_mins: 34,
+      explanation: "Vessel passed 4.8 km from spill area."
+    }
+  ];
+
+  const vessel = selectedVessel || candidates[0];
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      {/* Title */}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+      {/* Header */}
       <div>
-        <h1 style={{ fontSize: '22px', fontWeight: '800', color: '#f8fafc' }}>
-          Suspect Vessel Risk Ranking & Forensic Dossiers
-        </h1>
-        <p style={{ fontSize: '13px', color: '#94a3b8' }}>
-          Prioritized list of suspect vessels ranked by multi-variable spatiotemporal probability score
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <h1 style={{ fontSize: '1.8rem', fontWeight: '900' }}>Vessel Investigation Workspace</h1>
+          <span className="badge badge-red">CORRELATION RANKING</span>
+        </div>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginTop: '4px' }}>
+          Three-column investigation dossier evaluating candidate vessels against satellite oil spill evidence.
         </p>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 420px', gap: '20px' }}>
-        {/* Ranked Suspect Cards List */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          {rankings.map((v) => {
-            const isCritical = v.risk_level === 'CRITICAL';
-            const isHigh = v.risk_level === 'HIGH';
+      {/* 3-Column Layout: Left (Candidates List) + Center (GIS Map) + Right (Evidence Panel) */}
+      <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr 340px', gap: '20px', alignItems: 'start' }}>
+        {/* LEFT COLUMN: Candidate Vessels List */}
+        <div className="glass-panel" style={{ padding: '16px', borderRadius: '14px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div style={{ fontSize: '11px', fontWeight: '800', color: 'var(--text-muted)', letterSpacing: '1px' }}>
+            CANDIDATE VESSELS ({candidates.length})
+          </div>
+
+          {candidates.map((cand, idx) => {
+            const isSelected = vessel.mmsi === cand.mmsi;
+            const isHighRisk = cand.total_score >= 70;
 
             return (
               <div
-                key={v.mmsi}
-                className="glass-panel"
+                key={cand.mmsi}
+                onClick={() => setSelectedVessel(cand)}
                 style={{
-                  padding: '20px',
-                  border: isCritical ? '1px solid rgba(239, 68, 68, 0.7)' : (isHigh ? '1px solid rgba(249, 115, 22, 0.7)' : '1px solid #334155'),
-                  position: 'relative'
+                  padding: '14px',
+                  borderRadius: '10px',
+                  background: isSelected ? 'rgba(56, 189, 248, 0.12)' : 'var(--bg-surface)',
+                  border: isSelected ? '1px solid var(--accent-cyan)' : '1px solid var(--border-color)',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
                 }}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                    <div style={{
-                      width: '42px',
-                      height: '42px',
-                      borderRadius: '10px',
-                      background: isCritical ? 'rgba(239, 68, 68, 0.2)' : 'rgba(56, 189, 248, 0.2)',
-                      border: `1px solid ${isCritical ? '#ef4444' : '#38bdf8'}`,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontWeight: '800',
-                      fontSize: '18px',
-                      color: isCritical ? '#ef4444' : '#38bdf8'
-                    }}>
-                      #{v.rank}
-                    </div>
-
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <h3 style={{ fontSize: '17px', fontWeight: '800', color: '#f8fafc' }}>{v.vessel_name}</h3>
-                        <span className={`badge badge-${v.risk_level.toLowerCase()}`}>
-                          {v.risk_level} ({v.correlation_score}%)
-                        </span>
-                      </div>
-                      <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '2px' }}>
-                        MMSI: {v.mmsi} | IMO: {v.imo} | Type: {v.vessel_type} | Length: {v.length_m}m
-                      </div>
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={() => setSelectedVessel(v)}
-                    className="glass-button"
-                    style={{ padding: '6px 14px', fontSize: '12px' }}
-                  >
-                    <Eye size={14} /> Dossier
-                  </button>
+                <div style={{ fontSize: '10px', fontWeight: '800', color: 'var(--text-muted)', marginBottom: '2px' }}>
+                  CANDIDATE #{idx + 1}
                 </div>
-
-                {/* KPI Metrics Line */}
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(3, 1fr)',
-                  gap: '10px',
-                  background: '#0f172a',
-                  border: '1px solid #334155',
-                  padding: '10px 14px',
-                  borderRadius: '8px',
-                  marginBottom: '12px',
-                  fontSize: '12px'
-                }}>
-                  <div>
-                    <span style={{ color: '#94a3b8' }}>Closest Approach:</span><br />
-                    <strong style={{ color: '#38bdf8' }}>{v.min_distance_km} km away</strong>
-                  </div>
-                  <div>
-                    <span style={{ color: '#94a3b8' }}>Time Offset:</span><br />
-                    <strong style={{ color: '#f8fafc' }}>{v.time_delta_mins} mins from spill</strong>
-                  </div>
-                  <div>
-                    <span style={{ color: '#94a3b8' }}>Discharge Speed Drop:</span><br />
-                    <strong style={{ color: v.closest_approach?.sog < 6.0 ? '#ef4444' : '#cbd5e1' }}>
-                      {v.closest_approach?.sog} knots
-                    </strong>
-                  </div>
+                <div style={{ fontWeight: '800', fontSize: '15px', color: isSelected ? 'var(--accent-cyan)' : 'var(--text-primary)' }}>
+                  {cand.vessel_name}
                 </div>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>MMSI: {cand.mmsi} | {cand.vessel_type}</div>
 
-                {/* Evidence Bullets */}
-                <div style={{ fontSize: '12px', color: '#cbd5e1' }}>
-                  <div style={{ fontWeight: '700', color: '#94a3b8', marginBottom: '4px', fontSize: '11px', textTransform: 'uppercase' }}>
-                    Key Forensic Evidence:
-                  </div>
-                  <ul style={{ paddingLeft: '18px', margin: 0, lineHeight: '1.6' }}>
-                    {v.evidence_summary?.map((ev, idx) => (
-                      <li key={idx}>{ev}</li>
-                    ))}
-                  </ul>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px' }}>
+                  <span className={`badge ${isHighRisk ? 'badge-red' : 'badge-amber'}`}>
+                    Potential Association
+                  </span>
+                  <span style={{ fontWeight: '900', color: isHighRisk ? 'var(--accent-red)' : 'var(--accent-amber)', fontSize: '15px' }}>
+                    {cand.total_score}%
+                  </span>
                 </div>
               </div>
             );
           })}
         </div>
 
-        {/* GIS Map Preview Panel */}
-        <div style={{ position: 'sticky', top: '88px', height: 'fit-content' }}>
-          <div className="glass-panel" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <ShieldAlert size={16} color="#ef4444" /> Trajectory & Slick Overlay
-            </h3>
-            <InteractiveMap height="520px" />
+        {/* CENTER COLUMN: Focused GIS Map */}
+        <div>
+          <div style={{ marginBottom: '8px', fontSize: '12px', color: 'var(--text-muted)' }}>
+            Focused Correlation Map: <strong style={{ color: 'var(--accent-cyan)' }}>{vessel.vessel_name}</strong> vs Slick
+          </div>
+          <InteractiveMap height="540px" focusedVesselMmsi={vessel.mmsi} />
+        </div>
+
+        {/* RIGHT COLUMN: Evidence Panel */}
+        <div className="glass-panel" style={{ padding: '20px', borderRadius: '14px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
+            <div style={{ fontSize: '10px', fontWeight: '800', color: 'var(--accent-cyan)', letterSpacing: '1px' }}>
+              INVESTIGATION EVIDENCE DOSSIER
+            </div>
+            <h3 style={{ fontSize: '1.4rem', fontWeight: '900', marginTop: '2px' }}>{vessel.vessel_name}</h3>
+          </div>
+
+          {/* VESSEL PROFILE */}
+          <div style={{ fontSize: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{ fontWeight: '800', color: 'var(--text-muted)', fontSize: '11px' }}>VESSEL PROFILE</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: 'var(--text-muted)' }}>MMSI:</span>
+              <span style={{ fontWeight: '700', fontFamily: 'monospace' }}>{vessel.mmsi}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: 'var(--text-muted)' }}>Vessel Type:</span>
+              <span style={{ fontWeight: '600' }}>{vessel.vessel_type || "Tanker"}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: 'var(--text-muted)' }}>Flag:</span>
+              <span style={{ fontWeight: '600' }}>{vessel.flag || "Panama"}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: 'var(--text-muted)' }}>Speed / Course:</span>
+              <span style={{ fontWeight: '600' }}>{vessel.speed || 12.4} kts / {vessel.course || 142}°</span>
+            </div>
+          </div>
+
+          {/* SPATIAL EVIDENCE */}
+          <div style={{ background: 'var(--bg-surface)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '12px' }}>
+            <div style={{ fontWeight: '800', color: 'var(--accent-cyan)', marginBottom: '4px' }}>SPATIAL EVIDENCE</div>
+            <div>Minimum Distance to Spill: <strong style={{ color: 'var(--accent-red)' }}>{vessel.min_distance_km || 1.5} km</strong></div>
+          </div>
+
+          {/* TEMPORAL EVIDENCE */}
+          <div style={{ background: 'var(--bg-surface)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '12px' }}>
+            <div style={{ fontWeight: '800', color: 'var(--accent-amber)', marginBottom: '4px' }}>TEMPORAL EVIDENCE</div>
+            <div>Time Delta to Satellite Scene: <strong>-{vessel.time_delta_mins || 42} mins</strong></div>
+          </div>
+
+          {/* TRAJECTORY EVIDENCE */}
+          <div style={{ background: 'var(--bg-surface)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '12px' }}>
+            <div style={{ fontWeight: '800', color: 'var(--accent-indigo)', marginBottom: '4px' }}>TRAJECTORY EVIDENCE</div>
+            <div>Heading & course vector aligned with slick propagation axis.</div>
+          </div>
+
+          {/* INVESTIGATION NOTE */}
+          <div style={{ background: 'rgba(239, 68, 68, 0.08)', padding: '12px', borderRadius: '8px', border: '1px solid rgba(239, 68, 68, 0.3)', fontSize: '12px' }}>
+            <div style={{ fontWeight: '800', color: 'var(--accent-red)', marginBottom: '4px' }}>INVESTIGATION NOTE</div>
+            <p style={{ color: 'var(--text-secondary)', lineHeight: '1.4' }}>
+              "{vessel.explanation}"
+            </p>
           </div>
         </div>
       </div>

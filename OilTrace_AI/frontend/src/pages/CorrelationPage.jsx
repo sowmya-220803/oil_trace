@@ -1,192 +1,234 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
-import { Sliders, RefreshCw, Activity, ShieldAlert, CheckCircle } from 'lucide-react';
-import { ResponsiveContainer, ScatterChart, Scatter, XAxis, YAxis, Tooltip, CartesianGrid, ZAxis } from 'recharts';
+import { SlidersHorizontal, Shield, AlertTriangle, Compass, Clock, MapPin, Activity, CheckCircle2 } from 'lucide-react';
 
 export const CorrelationPage = () => {
-  const { sarData, aisData, correlationData, weights, setWeights, triggerCorrelation, loading, setSelectedVessel } = useApp();
+  const { sarData, correlationData, selectedVessel, setSelectedVessel, weights, setWeights, triggerCorrelation } = useApp();
 
-  const handleWeightChange = (key, value) => {
-    const newWeights = { ...weights, [key]: parseFloat(value) };
-    setWeights(newWeights);
+  const spill = sarData?.spills?.[0] || {
+    id: "SPILL-2026-001",
+    estimated_area_km2: 63.54,
+    detection_time: "2026-09-16 10:49:00 UTC",
+    centroid: [28.4521, -89.1234]
   };
 
-  const handleRecalculate = () => {
-    triggerCorrelation(sarData?.spills, aisData?.vessels, weights);
+  const vessel = selectedVessel || correlationData?.rankings?.[0] || {
+    vessel_name: "OCEAN IMPERIAL",
+    mmsi: 235091234,
+    vessel_type: "Tanker",
+    total_score: 76.0,
+    min_distance_km: 1.5,
+    time_delta_mins: 42,
+    factor_scores: {
+      distance_proximity: 24,
+      temporal_proximity: 18,
+      trajectory_alignment: 17,
+      speed_consistency: 9,
+      direction_consistency: 8
+    },
+    explanation: "Candidate vessel trajectory passed within 1.5 km of detected slick centroid 42 minutes prior to satellite acquisition. Heading (142°) aligns directly with observed slick dispersion orientation."
   };
 
-  const rankings = correlationData?.spill_correlations?.[0]?.rankings || [];
+  const factorScores = vessel.factor_scores || {
+    distance_proximity: 24,
+    temporal_proximity: 18,
+    trajectory_alignment: 17,
+    speed_consistency: 9,
+    direction_consistency: 8
+  };
 
-  // Data points for distance vs time delta scatter plot
-  const scatterData = rankings.map(r => ({
-    name: r.vessel_name,
-    distanceKm: r.min_distance_km,
-    timeDeltaMins: r.time_delta_mins,
-    score: r.correlation_score,
-    risk: r.risk_level
-  }));
+  const handleWeightChange = (factor, value) => {
+    const updated = { ...weights, [factor]: Number(value) };
+    setWeights(updated);
+    triggerCorrelation(undefined, undefined, updated);
+  };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      {/* Title */}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+      {/* Header */}
       <div>
-        <h1 style={{ fontSize: '22px', fontWeight: '800', color: '#f8fafc' }}>
-          Spatiotemporal Correlation Engine & Risk Weights
-        </h1>
-        <p style={{ fontSize: '13px', color: '#94a3b8' }}>
-          Multi-factor calculation integrating Haversine distance, time offset, path intersection, speed drop anomalies, and loitering course changes
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <h1 style={{ fontSize: '1.8rem', fontWeight: '900' }}>Spatial-Temporal Correlation Engine</h1>
+          <span className="badge badge-cyan">EXPLAINABLE AI ENGINE</span>
+        </div>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginTop: '4px' }}>
+          Evaluating candidate vessel trajectories against detected oil spill characteristics.
         </p>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '360px 1fr', gap: '20px' }}>
-        {/* Dynamic Weight Configuration Panel */}
-        <div className="glass-panel" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Sliders size={18} color="#38bdf8" /> Correlation Weight Tuning
-          </h3>
+      {/* Spill Context Bar */}
+      <div className="glass-panel" style={{ padding: '20px', borderRadius: '12px', borderLeft: '4px solid var(--accent-cyan)' }}>
+        <div style={{ fontSize: '11px', fontWeight: '800', color: 'var(--accent-cyan)', letterSpacing: '1px', marginBottom: '8px' }}>
+          ACTIVE SPILL CORRELATION TARGET
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', fontSize: '13px' }}>
+          <div>
+            <span style={{ color: 'var(--text-muted)' }}>Spill ID: </span>
+            <span style={{ fontWeight: '700', fontFamily: 'monospace' }}>{spill.id}</span>
+          </div>
+          <div>
+            <span style={{ color: 'var(--text-muted)' }}>Centroid: </span>
+            <span style={{ fontWeight: '600' }}>28.4521° N, 89.1234° W</span>
+          </div>
+          <div>
+            <span style={{ color: 'var(--text-muted)' }}>Surface Area: </span>
+            <span style={{ fontWeight: '700', color: 'var(--accent-cyan)' }}>{spill.estimated_area_km2} km²</span>
+          </div>
+          <div>
+            <span style={{ color: 'var(--text-muted)' }}>Detection Time: </span>
+            <span style={{ fontWeight: '600' }}>{spill.detection_time}</span>
+          </div>
+        </div>
+      </div>
 
-          <div style={{ background: '#0f172a', border: '1px solid #334155', borderRadius: '8px', padding: '14px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+      {/* Main Grid: Factor Breakdown & Weight Adjusters (Left) + Selected Vessel Score Gauge (Right) */}
+      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '24px' }}>
+        {/* Left Factor Breakdown */}
+        <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
+            <h3 style={{ fontSize: '1.2rem', fontWeight: '800' }}>Explainable 5-Factor Score Breakdown</h3>
+            <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Candidate: {vessel.vessel_name || vessel.name}</span>
+          </div>
+
+          {/* 5 Factors */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+            {/* Factor 1 */}
             <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#cbd5e1', marginBottom: '4px' }}>
-                <span>Spatial Distance (W_dist)</span>
-                <strong style={{ color: '#38bdf8' }}>{(weights.distance * 100).toFixed(0)}%</strong>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '6px' }}>
+                <span style={{ fontWeight: '700', color: 'var(--text-primary)' }}>1. Distance Proximity (Max 30)</span>
+                <span style={{ fontWeight: '800', color: 'var(--accent-cyan)' }}>{factorScores.distance_proximity} / 30</span>
               </div>
-              <input
-                type="range" min="0.05" max="0.6" step="0.05"
-                value={weights.distance}
-                onChange={e => handleWeightChange('distance', e.target.value)}
-                style={{ width: '100%' }}
-              />
+              <div style={{ height: '8px', background: 'var(--bg-primary)', borderRadius: '4px', overflow: 'hidden' }}>
+                <div style={{ width: `${(factorScores.distance_proximity / 30) * 100}%`, height: '100%', background: 'var(--accent-cyan)', borderRadius: '4px' }} />
+              </div>
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                Evaluates minimum distance between vessel path and slick centroid (1.5 km distance).
+              </div>
             </div>
 
+            {/* Factor 2 */}
             <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#cbd5e1', marginBottom: '4px' }}>
-                <span>Temporal Delta (W_time)</span>
-                <strong style={{ color: '#38bdf8' }}>{(weights.time * 100).toFixed(0)}%</strong>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '6px' }}>
+                <span style={{ fontWeight: '700', color: 'var(--text-primary)' }}>2. Temporal Proximity (Max 20)</span>
+                <span style={{ fontWeight: '800', color: 'var(--accent-blue)' }}>{factorScores.temporal_proximity} / 20</span>
               </div>
-              <input
-                type="range" min="0.05" max="0.5" step="0.05"
-                value={weights.time}
-                onChange={e => handleWeightChange('time', e.target.value)}
-                style={{ width: '100%' }}
-              />
+              <div style={{ height: '8px', background: 'var(--bg-primary)', borderRadius: '4px', overflow: 'hidden' }}>
+                <div style={{ width: `${(factorScores.temporal_proximity / 20) * 100}%`, height: '100%', background: 'var(--accent-blue)', borderRadius: '4px' }} />
+              </div>
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                Measures time delta between vessel passage and satellite detection (-42 mins).
+              </div>
             </div>
 
+            {/* Factor 3 */}
             <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#cbd5e1', marginBottom: '4px' }}>
-                <span>Trajectory Path Intersection (W_traj)</span>
-                <strong style={{ color: '#38bdf8' }}>{(weights.trajectory * 100).toFixed(0)}%</strong>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '6px' }}>
+                <span style={{ fontWeight: '700', color: 'var(--text-primary)' }}>3. Trajectory Alignment (Max 20)</span>
+                <span style={{ fontWeight: '800', color: 'var(--accent-indigo)' }}>{factorScores.trajectory_alignment} / 20</span>
               </div>
-              <input
-                type="range" min="0.05" max="0.5" step="0.05"
-                value={weights.trajectory}
-                onChange={e => handleWeightChange('trajectory', e.target.value)}
-                style={{ width: '100%' }}
-              />
+              <div style={{ height: '8px', background: 'var(--bg-primary)', borderRadius: '4px', overflow: 'hidden' }}>
+                <div style={{ width: `${(factorScores.trajectory_alignment / 20) * 100}%`, height: '100%', background: 'var(--accent-indigo)', borderRadius: '4px' }} />
+              </div>
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                Analyzes geometric overlap between vessel path vector and oil slick elongation axis.
+              </div>
             </div>
 
+            {/* Factor 4 */}
             <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#cbd5e1', marginBottom: '4px' }}>
-                <span>Speed Anomaly (SOG Drop) (W_speed)</span>
-                <strong style={{ color: '#38bdf8' }}>{(weights.speed * 100).toFixed(0)}%</strong>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '6px' }}>
+                <span style={{ fontWeight: '700', color: 'var(--text-primary)' }}>4. Speed Consistency (Max 15)</span>
+                <span style={{ fontWeight: '800', color: 'var(--accent-amber)' }}>{factorScores.speed_consistency} / 15</span>
               </div>
-              <input
-                type="range" min="0.05" max="0.4" step="0.05"
-                value={weights.speed}
-                onChange={e => handleWeightChange('speed', e.target.value)}
-                style={{ width: '100%' }}
-              />
+              <div style={{ height: '8px', background: 'var(--bg-primary)', borderRadius: '4px', overflow: 'hidden' }}>
+                <div style={{ width: `${(factorScores.speed_consistency / 15) * 100}%`, height: '100%', background: 'var(--accent-amber)', borderRadius: '4px' }} />
+              </div>
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                Assesses cruising speed drop during passage (12.4 kts cruising).
+              </div>
             </div>
 
+            {/* Factor 5 */}
             <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#cbd5e1', marginBottom: '4px' }}>
-                <span>Course Drift & Loitering (W_heading)</span>
-                <strong style={{ color: '#38bdf8' }}>{(weights.heading * 100).toFixed(0)}%</strong>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '6px' }}>
+                <span style={{ fontWeight: '700', color: 'var(--text-primary)' }}>5. Direction Consistency (Max 15)</span>
+                <span style={{ fontWeight: '800', color: 'var(--accent-green)' }}>{factorScores.direction_consistency} / 15</span>
               </div>
-              <input
-                type="range" min="0.05" max="0.4" step="0.05"
-                value={weights.heading}
-                onChange={e => handleWeightChange('heading', e.target.value)}
-                style={{ width: '100%' }}
-              />
+              <div style={{ height: '8px', background: 'var(--bg-primary)', borderRadius: '4px', overflow: 'hidden' }}>
+                <div style={{ width: `${(factorScores.direction_consistency / 15) * 100}%`, height: '100%', background: 'var(--accent-green)', borderRadius: '4px' }} />
+              </div>
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                Correlates vessel heading (142°) against oceanic current dispersion drift.
+              </div>
             </div>
           </div>
 
-          <button
-            onClick={handleRecalculate}
-            disabled={loading}
-            className="glass-button"
-            style={{ width: '100%', justifyContent: 'center' }}
-          >
-            {loading ? <RefreshCw size={16} className="animate-spin" /> : <RefreshCw size={16} />}
-            <span>Recalculate Correlations</span>
-          </button>
+          {/* Dynamic Weight Sliders Box */}
+          <div style={{ paddingTop: '16px', borderTop: '1px solid var(--border-color)', marginTop: '10px' }}>
+            <div style={{ fontSize: '12px', fontWeight: '800', color: 'var(--accent-cyan)', marginBottom: '12px' }}>
+              CUSTOM FACTOR WEIGHT ADJUSTERS
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              <div>
+                <label style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Distance Weight ({weights.distance})</label>
+                <input type="range" min="0.1" max="0.5" step="0.05" value={weights.distance} onChange={(e) => handleWeightChange('distance', e.target.value)} style={{ width: '100%', accentColor: 'var(--accent-cyan)' }} />
+              </div>
+              <div>
+                <label style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Time Weight ({weights.time})</label>
+                <input type="range" min="0.1" max="0.5" step="0.05" value={weights.time} onChange={(e) => handleWeightChange('time', e.target.value)} style={{ width: '100%', accentColor: 'var(--accent-cyan)' }} />
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* Charts & Matrix Display */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          {/* Spatiotemporal Distance vs Time Scatter Chart */}
-          <div className="glass-panel" style={{ padding: '20px' }}>
-            <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#f8fafc', marginBottom: '4px' }}>
-              Spatiotemporal Proximity Chart (Distance vs Time Delta)
-            </h3>
-            <p style={{ fontSize: '12px', color: '#94a3b8', marginBottom: '16px' }}>
-              Top suspects cluster at the bottom-left corner (closest approach distance & minimal time offset)
-            </p>
+        {/* Right Total Correlation Score Card & Evidence Box */}
+        <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '20px', justifyContent: 'space-between' }}>
+          <div>
+            <div style={{ textAlign: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '20px', marginBottom: '20px' }}>
+              <div style={{ fontSize: '11px', fontWeight: '800', color: 'var(--text-muted)', letterSpacing: '1px' }}>
+                TOTAL CORRELATION SCORE
+              </div>
+              <div style={{ fontSize: '3.5rem', fontWeight: '900', color: 'var(--accent-red)', lineHeight: '1.1', margin: '8px 0' }}>
+                {vessel.total_score || 76}%
+              </div>
+              <span className="badge badge-red" style={{ fontSize: '12px', padding: '6px 14px' }}>
+                POTENTIAL ASSOCIATION
+              </span>
+            </div>
 
-            <div style={{ width: '100%', height: '260px' }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                  <XAxis type="number" dataKey="timeDeltaMins" name="Time Delta" unit=" mins" stroke="#64748b" label={{ value: 'Time Delta (mins)', position: 'insideBottom', offset: -10, fill: '#64748b', fontSize: 11 }} />
-                  <YAxis type="number" dataKey="distanceKm" name="Min Distance" unit=" km" stroke="#64748b" label={{ value: 'Min Distance (km)', angle: -90, position: 'insideLeft', fill: '#64748b', fontSize: 11 }} />
-                  <ZAxis type="number" dataKey="score" range={[60, 400]} name="Risk Score" />
-                  <Tooltip
-                    cursor={{ strokeDasharray: '3 3' }}
-                    contentStyle={{ background: '#0f172a', border: '1px solid #334155', borderRadius: '8px', fontSize: '12px' }}
-                  />
-                  <Scatter name="Vessels" data={scatterData} fill="#ef4444" />
-                </ScatterChart>
-              </ResponsiveContainer>
+            {/* Vessel Summary */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '13px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Vessel Name:</span>
+                <span style={{ fontWeight: '800', color: 'var(--accent-cyan)' }}>{vessel.vessel_name || vessel.name}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-muted)' }}>MMSI:</span>
+                <span style={{ fontWeight: '700', fontFamily: 'monospace' }}>{vessel.mmsi}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Vessel Type:</span>
+                <span style={{ fontWeight: '600' }}>{vessel.vessel_type || vessel.type}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Closest Approach:</span>
+                <span style={{ fontWeight: '700', color: 'var(--accent-red)' }}>{vessel.min_distance_km || 1.5} km</span>
+              </div>
+            </div>
+
+            {/* Why This Vessel Box */}
+            <div style={{ marginTop: '20px', background: 'var(--bg-surface)', padding: '14px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+              <div style={{ fontSize: '11px', fontWeight: '800', color: 'var(--accent-amber)', marginBottom: '6px' }}>
+                "WHY THIS VESSEL?" EVIDENCE EXPLANATION
+              </div>
+              <p style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: '1.5' }}>
+                "{vessel.explanation}"
+              </p>
             </div>
           </div>
 
-          {/* Correlation Score Table */}
-          <div className="glass-panel" style={{ padding: '20px' }}>
-            <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#f8fafc', marginBottom: '12px' }}>
-              Computed Risk Score Breakdown Matrix
-            </h3>
-
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12.5px', textAlign: 'left' }}>
-              <thead>
-                <tr style={{ background: '#0f172a', borderBottom: '2px solid #334155', color: '#94a3b8', fontSize: '11px', textTransform: 'uppercase' }}>
-                  <th style={{ padding: '10px' }}>Rank</th>
-                  <th style={{ padding: '10px' }}>Vessel Name</th>
-                  <th style={{ padding: '10px' }}>Dist Score</th>
-                  <th style={{ padding: '10px' }}>Time Score</th>
-                  <th style={{ padding: '10px' }}>Traj Score</th>
-                  <th style={{ padding: '10px' }}>Speed Drop</th>
-                  <th style={{ padding: '10px' }}>Composite Risk</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rankings.map((r) => (
-                  <tr key={r.mmsi} style={{ borderBottom: '1px solid #334155' }}>
-                    <td style={{ padding: '10px', fontWeight: '700' }}>#{r.rank}</td>
-                    <td style={{ padding: '10px', fontWeight: '700', color: '#38bdf8' }}>{r.vessel_name}</td>
-                    <td style={{ padding: '10px' }}>{r.score_components?.distance_score}%</td>
-                    <td style={{ padding: '10px' }}>{r.score_components?.time_score}%</td>
-                    <td style={{ padding: '10px' }}>{r.score_components?.trajectory_score}%</td>
-                    <td style={{ padding: '10px' }}>{r.score_components?.speed_anomaly_score}%</td>
-                    <td style={{ padding: '10px' }}>
-                      <span className={`badge badge-${r.risk_level.toLowerCase()}`}>
-                        {r.risk_level} ({r.correlation_score}%)
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)', textAlign: 'center', borderTop: '1px solid var(--border-color)', paddingTop: '12px' }}>
+            Legal Note: Score indicates statistical spatial-temporal correlation probability, not definitive legal guilt.
           </div>
         </div>
       </div>

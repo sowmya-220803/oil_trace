@@ -2,20 +2,26 @@ import React from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { Navbar } from './components/Navbar';
 import { Sidebar } from './components/Sidebar';
-import { VesselDetailModal } from './components/VesselDetailModal';
+import { LandingPage } from './pages/LandingPage';
 import { Dashboard } from './pages/Dashboard';
 import { SatelliteAnalysis } from './pages/SatelliteAnalysis';
 import { AisDataPage } from './pages/AisDataPage';
 import { CorrelationPage } from './pages/CorrelationPage';
 import { VesselRankingPage } from './pages/VesselRankingPage';
+import { TimelinePage } from './pages/TimelinePage';
 import { ReportsPage } from './pages/ReportsPage';
+import { DemoWorkflowModal } from './components/DemoWorkflowModal';
+import { VesselDetailModal } from './components/VesselDetailModal';
 import { AlertCircle } from 'lucide-react';
 
 const MainLayout = () => {
   const { activeTab, error, setError } = useApp();
+  const isLanding = activeTab === 'landing';
 
   const renderPage = () => {
     switch (activeTab) {
+      case 'landing':
+        return <LandingPage />;
       case 'dashboard':
         return <Dashboard />;
       case 'sar':
@@ -26,6 +32,8 @@ const MainLayout = () => {
         return <CorrelationPage />;
       case 'vessels':
         return <VesselRankingPage />;
+      case 'timeline':
+        return <TimelinePage />;
       case 'reports':
         return <ReportsPage />;
       default:
@@ -34,23 +42,30 @@ const MainLayout = () => {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', background: 'var(--bg-dark)' }}>
-      {/* Top Navbar */}
-      <Navbar />
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', background: 'var(--bg-primary)' }}>
+      {/* Top Navbar - Only shown for main app pages */}
+      {!isLanding && <Navbar />}
 
       <div style={{ display: 'flex', flex: 1 }}>
-        {/* Left Collapsible Sidebar Navigation */}
-        <Sidebar />
+        {/* Left Sidebar Navigation - Only shown for main app pages */}
+        {!isLanding && <Sidebar />}
 
-        {/* Main Content Workspace */}
-        <main style={{ flex: 1, padding: '24px', overflowY: 'auto', maxWidth: '1600px', margin: '0 auto', width: '100%' }}>
+        {/* Main Content Area */}
+        <main style={{
+          flex: 1,
+          padding: isLanding ? '0' : '24px',
+          overflowY: 'auto',
+          maxWidth: isLanding ? '100%' : '1600px',
+          margin: '0 auto',
+          width: '100%'
+        }}>
           {error && (
             <div style={{
               background: 'rgba(239, 68, 68, 0.15)',
               border: '1px solid #ef4444',
               borderRadius: '10px',
               padding: '14px 18px',
-              marginBottom: '20px',
+              margin: '16px',
               color: '#fca5a5',
               display: 'flex',
               alignItems: 'center',
@@ -73,6 +88,9 @@ const MainLayout = () => {
           {renderPage()}
         </main>
       </div>
+
+      {/* Demo Workflow Progress Modal */}
+      <DemoWorkflowModal />
 
       {/* Suspect Vessel Dossier Modal */}
       <VesselDetailModal />

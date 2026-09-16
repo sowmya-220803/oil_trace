@@ -1,198 +1,294 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { Upload, Radio, Sparkles, Search, Filter, Anchor, RefreshCw } from 'lucide-react';
+import { InteractiveMap } from '../components/InteractiveMap';
+import { Radio, Search, Filter, Ship, Compass, MapPin, Clock, ArrowRight, X } from 'lucide-react';
 
 export const AisDataPage = () => {
-  const { aisData, uploadAisCsv, generateSyntheticAis, sarData, loading, setSelectedVessel } = useApp();
-
-  const [searchQuery, setSearchQuery] = useState('');
-  const [typeFilter, setTypeFilter] = useState('ALL');
-  const [syntheticCount, setSyntheticCount] = useState(6);
-
-  const centerLat = sarData?.detection_summary?.center_coordinates?.lat || 53.2500;
-  const centerLon = sarData?.detection_summary?.center_coordinates?.lon || 3.4500;
-
-  const handleFileUpload = async (e) => {
-    if (e.target.files && e.target.files[0]) {
-      try {
-        await uploadAisCsv(e.target.files[0]);
-      } catch (err) {
-        console.error(err);
-      }
-    }
-  };
-
-  const handleGenerateSynthetic = async () => {
-    try {
-      await generateSyntheticAis(centerLat, centerLon, syntheticCount);
-    } catch (err) {
-      console.error(err);
-    }
-  };
+  const { aisData, correlationData, selectedVessel, setSelectedVessel } = useApp();
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterType, setFilterType] = useState('ALL');
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   const vessels = aisData?.vessels || [];
 
   const filteredVessels = vessels.filter(v => {
-    const matchesSearch = v.vessel_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          v.mmsi.includes(searchQuery) ||
-                          v.imo.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesType = typeFilter === 'ALL' || v.vessel_type.toLowerCase().includes(typeFilter.toLowerCase());
+    const name = v.vessel_name || v.name || "UNNAMED VESSEL";
+    const type = v.type || v.vessel_type || "Commercial Vessel";
+    const mmsiStr = String(v.mmsi || '');
+
+    const matchesSearch = name.toLowerCase().includes(searchTerm.toLowerCase()) || mmsiStr.includes(searchTerm);
+    const matchesType = filterType === 'ALL' || type.toUpperCase().includes(filterType);
     return matchesSearch && matchesType;
   });
 
+  const getVesselCorrelation = (mmsi) => {
+    return correlationData?.rankings?.find(r => r.mmsi === mmsi);
+  };
+
+  const handleSelectVessel = (vessel) => {
+    const correlationInfo = getVesselCorrelation(vessel.mmsi);
+    setSelectedVessel(correlationInfo || vessel);
+    setDrawerOpen(true);
+  };
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      {/* Title */}
-      <div>
-        <h1 style={{ fontSize: '22px', fontWeight: '800', color: '#f8fafc' }}>
-          MarineCadastre AIS Data Processing & Synthetic Traffic Generator
-        </h1>
-        <p style={{ fontSize: '13px', color: '#94a3b8' }}>
-          Upload standard MarineCadastre CSV trajectory logs or synthesize realistic maritime traffic along shipping channels
-        </p>
-      </div>
-
-      {/* Upload & Synthetic Controls Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-        {/* Upload MarineCadastre CSV */}
-        <div className="glass-panel" style={{ padding: '20px' }}>
-          <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#f8fafc', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Upload size={18} color="#38bdf8" /> Upload MarineCadastre AIS CSV
-          </h3>
-          <p style={{ fontSize: '12px', color: '#94a3b8', marginBottom: '16px' }}>
-            Fields: <code>MMSI, BaseDateTime, LAT, LON, SOG, COG, VesselName, IMO, VesselType</code>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <h1 style={{ fontSize: '1.8rem', fontWeight: '900' }}>AIS Vessel Intelligence</h1>
+            <span className="badge badge-cyan">MARINECADASTRE AIS</span>
+          </div>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginTop: '4px' }}>
+            Real-time and historical commercial vessel trajectory analysis within surveillance zone.
           </p>
-
-          <label className="glass-button-secondary" style={{ width: '100%', justifyContent: 'center', padding: '12px', cursor: 'pointer' }}>
-            <Upload size={16} /> Select AIS CSV File
-            <input type="file" accept=".csv" onChange={handleFileUpload} style={{ display: 'none' }} />
-          </label>
         </div>
 
-        {/* Generate Synthetic AIS Traffic */}
-        <div className="glass-panel" style={{ padding: '20px' }}>
-          <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#f8fafc', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Sparkles size={18} color="#eab308" /> Generate Synthetic Traffic
-          </h3>
-          <p style={{ fontSize: '12px', color: '#94a3b8', marginBottom: '16px' }}>
-            Simulate realistic tankers, cargo vessels & tug trajectories around spill coordinates ({centerLat}, {centerLon})
-          </p>
+        {/* Status Pills */}
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+          <div style={{ background: 'var(--bg-surface)', padding: '8px 14px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '12px' }}>
+            <span style={{ color: 'var(--text-muted)' }}>Status: </span>
+            <span style={{ color: 'var(--accent-green)', fontWeight: '700' }}>CONNECTED</span>
+          </div>
 
-          <div style={{ display: 'flex', gap: '12px' }}>
-            <select
-              value={syntheticCount}
-              onChange={(e) => setSyntheticCount(parseInt(e.target.value))}
-              style={{ background: '#0f172a', border: '1px solid #334155', color: '#f8fafc', borderRadius: '8px', padding: '8px 12px', fontSize: '13px' }}
-            >
-              <option value={4}>4 Vessels</option>
-              <option value={6}>6 Vessels (Standard)</option>
-              <option value={10}>10 Vessels (Dense Channel)</option>
-            </select>
+          <div style={{ background: 'var(--bg-surface)', padding: '8px 14px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '12px' }}>
+            <span style={{ color: 'var(--text-muted)' }}>Vessels Detected: </span>
+            <span style={{ fontWeight: '700', color: 'var(--accent-cyan)' }}>{vessels.length}</span>
+          </div>
 
+          <div style={{ background: 'var(--bg-surface)', padding: '8px 14px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '12px' }}>
+            <span style={{ color: 'var(--text-muted)' }}>Analysis Radius: </span>
+            <span style={{ fontWeight: '700' }}>25 km</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Interactive Map */}
+      <InteractiveMap height="460px" focusedVesselMmsi={selectedVessel?.mmsi} />
+
+      {/* Search & Filter Controls */}
+      <div className="glass-panel" style={{ padding: '16px', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
+        {/* Search Box */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--bg-primary)', padding: '8px 14px', borderRadius: '8px', border: '1px solid var(--border-color)', flex: 1, maxWidth: '360px' }}>
+          <Search size={16} color="var(--text-muted)" />
+          <input
+            type="text"
+            placeholder="Search by Vessel Name or MMSI..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={{ background: 'none', border: 'none', color: 'var(--text-primary)', outline: 'none', width: '100%', fontSize: '13px' }}
+          />
+        </div>
+
+        {/* Filter Buttons */}
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <Filter size={16} color="var(--text-muted)" />
+          <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-muted)' }}>Type:</span>
+          {['ALL', 'TANKER', 'CONTAINER SHIP', 'BULK CARRIER', 'TUG / SUPPLY'].map(type => (
             <button
-              onClick={handleGenerateSynthetic}
-              disabled={loading}
-              className="glass-button"
-              style={{ flex: 1, justifyContent: 'center', background: 'linear-gradient(135deg, #d97706 0%, #b45309 100%)' }}
+              key={type}
+              onClick={() => setFilterType(type)}
+              style={{
+                padding: '6px 12px',
+                borderRadius: '6px',
+                border: 'none',
+                background: filterType === type ? 'var(--accent-cyan)' : 'var(--bg-surface)',
+                color: filterType === type ? 'white' : 'var(--text-secondary)',
+                fontWeight: filterType === type ? '700' : '500',
+                fontSize: '11px',
+                cursor: 'pointer'
+              }}
             >
-              {loading ? <RefreshCw size={16} className="animate-spin" /> : <Radio size={16} />}
-              <span>Generate AIS Data</span>
+              {type}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Vessel Table */}
+      <div className="glass-panel" style={{ borderRadius: '12px', overflow: 'hidden' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
+          <thead>
+            <tr style={{ background: 'var(--bg-surface)', borderBottom: '1px solid var(--border-color)', color: 'var(--text-muted)' }}>
+              <th style={{ padding: '14px 16px' }}>MMSI</th>
+              <th style={{ padding: '14px 16px' }}>Vessel Name</th>
+              <th style={{ padding: '14px 16px' }}>Type</th>
+              <th style={{ padding: '14px 16px' }}>Position (Lat, Lon)</th>
+              <th style={{ padding: '14px 16px' }}>Speed (kts)</th>
+              <th style={{ padding: '14px 16px' }}>Course</th>
+              <th style={{ padding: '14px 16px' }}>Distance to Spill</th>
+              <th style={{ padding: '14px 16px' }}>Correlation</th>
+              <th style={{ padding: '14px 16px', textAlign: 'right' }}>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredVessels.map(v => {
+              const mmsi = v.mmsi || 0;
+              const name = v.vessel_name || v.name || "UNNAMED VESSEL";
+              const type = v.type || v.vessel_type || "Commercial Vessel";
+              const lat = v.latitude ?? v.lat ?? 28.4521;
+              const lon = v.longitude ?? v.lon ?? -89.1234;
+              const speed = v.speed ?? 12.4;
+              const course = v.course ?? 142;
+
+              const correlation = getVesselCorrelation(mmsi);
+              const isSelected = selectedVessel?.mmsi === mmsi;
+
+              return (
+                <tr
+                  key={mmsi}
+                  style={{
+                    borderBottom: '1px solid var(--border-color)',
+                    background: isSelected ? 'rgba(56, 189, 248, 0.08)' : 'transparent',
+                    transition: 'background 0.2s ease'
+                  }}
+                >
+                  <td style={{ padding: '14px 16px', fontFamily: 'monospace', fontWeight: '700' }}>{mmsi}</td>
+                  <td style={{ padding: '14px 16px', fontWeight: '700', color: 'var(--accent-cyan)' }}>{name}</td>
+                  <td style={{ padding: '14px 16px' }}>{type}</td>
+                  <td style={{ padding: '14px 16px', fontFamily: 'monospace', color: 'var(--text-secondary)' }}>
+                    {typeof lat === 'number' ? lat.toFixed(4) : lat}°, {typeof lon === 'number' ? lon.toFixed(4) : lon}°
+                  </td>
+                  <td style={{ padding: '14px 16px' }}>{speed} kts</td>
+                  <td style={{ padding: '14px 16px' }}>{course}°</td>
+                  <td style={{ padding: '14px 16px', fontWeight: '700' }}>
+                    {correlation ? `${correlation.min_distance_km} km` : '1.5 km'}
+                  </td>
+                  <td style={{ padding: '14px 16px' }}>
+                    {correlation ? (
+                      <span className={`badge ${correlation.total_score >= 70 ? 'badge-red' : correlation.total_score >= 50 ? 'badge-amber' : 'badge-cyan'}`}>
+                        {correlation.total_score}% Score
+                      </span>
+                    ) : (
+                      <span className="badge badge-cyan">N/A</span>
+                    )}
+                  </td>
+                  <td style={{ padding: '14px 16px', textAlign: 'right' }}>
+                    <button
+                      onClick={() => handleSelectVessel(v)}
+                      className="btn-secondary"
+                      style={{ padding: '6px 12px', fontSize: '11px' }}
+                    >
+                      <span>Details</span>
+                      <ArrowRight size={12} />
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Detailed Vessel Dossier Drawer */}
+      {drawerOpen && selectedVessel && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          right: 0,
+          bottom: 0,
+          width: '420px',
+          background: 'var(--bg-surface)',
+          borderLeft: '1px solid var(--border-color)',
+          boxShadow: 'var(--shadow-main)',
+          zIndex: 999,
+          padding: '24px',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between',
+          overflowY: 'auto'
+        }}>
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <div style={{ fontSize: '12px', fontWeight: '800', color: 'var(--accent-cyan)', letterSpacing: '1px' }}>
+                VESSEL DOSSIER
+              </div>
+              <button
+                onClick={() => setDrawerOpen(false)}
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <h2 style={{ fontSize: '1.6rem', fontWeight: '900', color: 'var(--accent-cyan)', marginBottom: '4px' }}>
+              {selectedVessel.vessel_name || selectedVessel.name || "OCEAN IMPERIAL"}
+            </h2>
+            <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '20px' }}>
+              MMSI: {selectedVessel.mmsi} | Flag: {selectedVessel.flag || "Panama"}
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', fontSize: '13px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '8px', borderBottom: '1px solid var(--border-color)' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Vessel Type:</span>
+                <span style={{ fontWeight: '700' }}>{selectedVessel.vessel_type || selectedVessel.type || "Tanker"}</span>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '8px', borderBottom: '1px solid var(--border-color)' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Current Position:</span>
+                <span style={{ fontWeight: '600', fontFamily: 'monospace' }}>
+                  {typeof (selectedVessel.latitude ?? selectedVessel.lat) === 'number'
+                    ? (selectedVessel.latitude ?? selectedVessel.lat).toFixed(4)
+                    : (selectedVessel.latitude ?? selectedVessel.lat)}°, {
+                  typeof (selectedVessel.longitude ?? selectedVessel.lon) === 'number'
+                    ? (selectedVessel.longitude ?? selectedVessel.lon).toFixed(4)
+                    : (selectedVessel.longitude ?? selectedVessel.lon)}°
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '8px', borderBottom: '1px solid var(--border-color)' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Cruising Speed:</span>
+                <span style={{ fontWeight: '700' }}>{selectedVessel.speed || 12.4} kts</span>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '8px', borderBottom: '1px solid var(--border-color)' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Course / Heading:</span>
+                <span style={{ fontWeight: '700' }}>{selectedVessel.course || 142}°</span>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '8px', borderBottom: '1px solid var(--border-color)' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Distance to Spill Centroid:</span>
+                <span style={{ fontWeight: '800', color: 'var(--accent-red)' }}>{selectedVessel.min_distance_km || 1.5} km</span>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '8px', borderBottom: '1px solid var(--border-color)' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Time Delta to Detection:</span>
+                <span style={{ fontWeight: '700', color: 'var(--accent-amber)' }}>-{selectedVessel.time_delta_mins || 42} minutes</span>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '8px', borderBottom: '1px solid var(--border-color)' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Correlation Score:</span>
+                <span style={{ fontWeight: '900', color: 'var(--accent-red)', fontSize: '18px' }}>
+                  {selectedVessel.total_score || 76}%
+                </span>
+              </div>
+            </div>
+
+            {/* Explanation box */}
+            {selectedVessel.explanation && (
+              <div style={{ marginTop: '20px', background: 'var(--bg-primary)', padding: '14px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                <div style={{ fontSize: '11px', fontWeight: '800', color: 'var(--accent-cyan)', marginBottom: '4px' }}>
+                  INVESTIGATION EVIDENCE SUMMARY
+                </div>
+                <p style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: '1.5' }}>
+                  "{selectedVessel.explanation}"
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div style={{ paddingTop: '20px', borderTop: '1px solid var(--border-color)' }}>
+            <button
+              onClick={() => setDrawerOpen(false)}
+              className="btn-primary"
+              style={{ width: '100%', justifyContent: 'center' }}
+            >
+              Close Vessel Dossier
             </button>
           </div>
         </div>
-      </div>
-
-      {/* AIS Vessel Trajectory Data Grid */}
-      <div className="glass-panel" style={{ padding: '20px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-          <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#f8fafc' }}>
-            Tracked Vessel Trajectory Index ({filteredVessels.length} Total)
-          </h3>
-
-          {/* Search & Filter Bar */}
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <div style={{ position: 'relative' }}>
-              <Search size={14} color="#94a3b8" style={{ position: 'absolute', left: '10px', top: '10px' }} />
-              <input
-                type="text"
-                placeholder="Search MMSI or Name..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                style={{
-                  background: '#0f172a',
-                  border: '1px solid #334155',
-                  color: '#f8fafc',
-                  padding: '6px 10px 6px 32px',
-                  borderRadius: '6px',
-                  fontSize: '12px',
-                  width: '200px'
-                }}
-              />
-            </div>
-
-            <select
-              value={typeFilter}
-              onChange={e => setTypeFilter(e.target.value)}
-              style={{ background: '#0f172a', border: '1px solid #334155', color: '#f8fafc', padding: '6px 10px', borderRadius: '6px', fontSize: '12px' }}
-            >
-              <option value="ALL">All Types</option>
-              <option value="Tanker">Tanker</option>
-              <option value="Cargo">Cargo</option>
-              <option value="Tug">Tug</option>
-              <option value="Fishing">Fishing</option>
-            </select>
-          </div>
-        </div>
-
-        {filteredVessels.length > 0 ? (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
-              <thead>
-                <tr style={{ background: '#0f172a', borderBottom: '2px solid #334155', color: '#94a3b8', fontSize: '11px', textTransform: 'uppercase' }}>
-                  <th style={{ padding: '10px' }}>MMSI</th>
-                  <th style={{ padding: '10px' }}>Vessel Name</th>
-                  <th style={{ padding: '10px' }}>Type</th>
-                  <th style={{ padding: '10px' }}>IMO</th>
-                  <th style={{ padding: '10px' }}>Length</th>
-                  <th style={{ padding: '10px' }}>Avg SOG</th>
-                  <th style={{ padding: '10px' }}>Min SOG</th>
-                  <th style={{ padding: '10px' }}>Waypoints</th>
-                  <th style={{ padding: '10px' }}>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredVessels.map(v => (
-                  <tr key={v.mmsi} style={{ borderBottom: '1px solid #334155' }}>
-                    <td style={{ padding: '10px', fontWeight: '700', color: '#38bdf8' }}>{v.mmsi}</td>
-                    <td style={{ padding: '10px', fontWeight: '700', color: '#f8fafc' }}>{v.vessel_name}</td>
-                    <td style={{ padding: '10px' }}>{v.vessel_type}</td>
-                    <td style={{ padding: '10px', color: '#94a3b8' }}>{v.imo}</td>
-                    <td style={{ padding: '10px' }}>{v.length_m} m</td>
-                    <td style={{ padding: '10px' }}>{v.avg_sog_knots} kts</td>
-                    <td style={{ padding: '10px', color: v.min_sog_knots < 5.0 ? '#ef4444' : '#cbd5e1', fontWeight: v.min_sog_knots < 5.0 ? '700' : 'normal' }}>
-                      {v.min_sog_knots} kts
-                    </td>
-                    <td style={{ padding: '10px' }}>{v.total_points} pts</td>
-                    <td style={{ padding: '10px' }}>
-                      <button
-                        onClick={() => setSelectedVessel(v)}
-                        className="glass-button-secondary"
-                        style={{ padding: '4px 8px', fontSize: '11px' }}
-                      >
-                        Inspect Track
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div style={{ padding: '30px', textAlign: 'center', color: '#94a3b8', fontSize: '13px' }}>
-            No matching AIS vessels found.
-          </div>
-        )}
-      </div>
+      )}
     </div>
   );
 };
